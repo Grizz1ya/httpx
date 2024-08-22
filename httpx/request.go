@@ -16,6 +16,12 @@ type Request struct {
 }
 
 func (r *Request) Do() (*Response, error) {
+	// * if body is nil, we should create a new buffer
+	if r.body == nil {
+		r.body = bytes.NewBuffer([]byte{})
+	}
+
+
 	rq, err := http.NewRequest(r.method, r.url, r.body)
 	if err != nil {
 		return nil, err
