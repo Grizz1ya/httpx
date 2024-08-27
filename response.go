@@ -12,6 +12,10 @@ type Response struct {
 }
 
 func (r *Response) Json() *gofasion.Fasion {
+	return gofasion.NewFasion(r.Text())
+}
+
+func (r *Response) Text() string {
 	defer r.response.Body.Close()
 
 	content, err := io.ReadAll(r.response.Body)
@@ -19,7 +23,5 @@ func (r *Response) Json() *gofasion.Fasion {
 		panic(err)
 	}
 
-	json := gofasion.NewFasion(string(content))
-
-	return json
+	return string(content)
 }
