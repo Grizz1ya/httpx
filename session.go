@@ -1,6 +1,9 @@
 package httpx
 
-import "net/http"
+import (
+	"net/http"
+	"net/url"
+)
 
 type Session struct {
 	client *http.Client
@@ -13,6 +16,16 @@ func NewSession() *Session {
 	return &Session{
 		client: http.DefaultClient,
 		headers: make(map[string]string),
+	}
+}
+
+func (s *Session) Proxy(proxy func(*http.Request) (*url.URL, error)) {
+	if proxy == nil {
+		s.client.Transport = nil
+	} else {
+		s.client.Transport = &http.Transport{
+			Proxy: proxy,
+		}
 	}
 }
 
