@@ -9,14 +9,14 @@ func TestSession(t *testing.T) {
 		t.Error("NewSession() returned nil")
 	}
 
-	s.AddHeader("key", "value")
+	s.AddStaticHeader("key", "value")
 	if s.headers["key"] != "value" {
-		t.Error("AddHeader() failed")
+		t.Error("AddStaticHeader() failed")
 	}
 
-	s.RemoveHeader("key")
+	s.RemoveStaticHeader("key")
 	if _, ok := s.headers["key"]; ok {
-		t.Error("RemoveHeader() failed")
+		t.Error("RemoveStaticHeader() failed")
 	}
 
 	s.Proxy(nil)
@@ -24,7 +24,7 @@ func TestSession(t *testing.T) {
 		t.Error("Proxy() failed")
 	}
 
-	response, err := s.Get("http://example.com").Params(map[string]interface{}{"key": "value"}).Do()
+	response, err := s.Get("http://example.com").Params(map[string]interface{}{"param1": "value"}).Do()
 	if err != nil {
 		t.Error("Get() failed")
 	}
@@ -34,4 +34,16 @@ func TestSession(t *testing.T) {
 	}
 
 	t.Logf("Response: %v", response.Text())
+
+	response, err = Get("http://example.com").Headers(map[string]string{"header1": "value"}).Do()
+	if err != nil {
+		t.Error("Get() failed")
+	}
+
+	if response == nil {
+		t.Error("Get() failed")
+	}
+
+	t.Logf("Response: %v", response.Text())
+
 }

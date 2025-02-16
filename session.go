@@ -30,27 +30,44 @@ func (s *Session) Proxy(proxy func(*http.Request) (*url.URL, error)) {
 }
 
 
-func (s *Session) request(method, url string) *Request {
-	return &Request{
-		method: method,
-		url: url,
-		client: s.client,
-		headers: s.headers,
-	}
-}
-
-func (s *Session) AddHeader(key, value string) {
+func (s *Session) AddStaticHeader(key, value string) {
+	// * Add static headers to the session
 	s.headers[key] = value
 }
 
-func (s *Session) RemoveHeader(key string) {
+func (s *Session) RemoveStaticHeader(key string) {
+	// * Remove static headers from the session
 	delete(s.headers, key)
 }
 
 func (s *Session) Get(url string) *Request {
-	return s.request("GET", url)
+	return request("GET", url, s.client, s.headers)
 }
 
 func (s *Session) Post(url string) *Request {
-	return s.request("POST", url)
+	return request("POST", url, s.client, s.headers)
+}
+
+func request(method, url string, client *http.Client, headers map[string]string) *Request {
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	return &Request{
+		method: method,
+		url: url,
+		client: client,
+		headers: headers,
+	}
+}
+
+
+// * Static methods
+
+func Get(url string) *Request {
+	return request("GET", url, nil, nil)
+}
+
+func Post(url string) *Request {
+	return request("POST", url, nil, nil)
 }
