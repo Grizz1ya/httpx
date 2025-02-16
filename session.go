@@ -29,11 +29,22 @@ func (s *Session) Proxy(proxy func(*http.Request) (*url.URL, error)) {
 	}
 }
 
+
 func (s *Session) request(method, url string) *Request {
 	return &Request{
 		method: method,
 		url: url,
+		client: s.client,
+		headers: s.headers,
 	}
+}
+
+func (s *Session) AddHeader(key, value string) {
+	s.headers[key] = value
+}
+
+func (s *Session) RemoveHeader(key string) {
+	delete(s.headers, key)
 }
 
 func (s *Session) Get(url string) *Request {

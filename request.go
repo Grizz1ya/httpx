@@ -7,11 +7,13 @@ import (
 )
 
 type Request struct {
+	client *http.Client
+	headers map[string]string
+
 	method string
 	url string
 
 	params map[string]string
-
 	body *bytes.Buffer
 }
 
@@ -27,6 +29,10 @@ func (r *Request) Do() (*Response, error) {
 		return nil, err
 	}
 
+	for k, v := range r.headers {
+		rq.Header.Add(k, v)
+	}
+
 	q := rq.URL.Query()
 	for k, v := range r.params {
 		q.Add(k, v)
@@ -34,7 +40,16 @@ func (r *Request) Do() (*Response, error) {
 
 	rq.URL.RawQuery = q.Encode()
 
-	_response, err := http.DefaultClient.Do(rq)
+
+	// * if client is nil, we should use the default client
+	var client *http.Client
+	if r.client != nil {
+		client = r.client
+	} else {
+		client = http.DefaultClient
+	}
+
+	_response, err := client.Do(rq)
 	if err != nil {
 		return nil, err
 	}
