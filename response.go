@@ -25,3 +25,7 @@ func (r *Response) Text() string {
 
 	return string(content)
 }
+
+func (r *Response) Cookies() []*http.Cookie {
+	return r.response.Cookies()
+}
