@@ -7,14 +7,15 @@ import (
 )
 
 type Request struct {
-	client *http.Client
-	headers map[string]string
+	client        *http.Client
+	headers       map[string]string
+	staticHeaders map[string]string
 
 	method string
-	url string
+	url    string
 
 	params map[string]string
-	body *bytes.Buffer
+	body   *bytes.Buffer
 }
 
 func (r *Request) Do() (*Response, error) {
@@ -22,7 +23,6 @@ func (r *Request) Do() (*Response, error) {
 	if r.body == nil {
 		r.body = bytes.NewBuffer([]byte{})
 	}
-
 
 	rq, err := http.NewRequest(r.method, r.url, r.body)
 	if err != nil {
@@ -33,13 +33,16 @@ func (r *Request) Do() (*Response, error) {
 		rq.Header.Add(k, v)
 	}
 
+	for k, v := range r.staticHeaders {
+		rq.Header.Add(k, v)
+	}
+
 	q := rq.URL.Query()
 	for k, v := range r.params {
 		q.Add(k, v)
 	}
 
 	rq.URL.RawQuery = q.Encode()
-
 
 	// * if client is nil, we should use the default client
 	var client *http.Client
@@ -70,7 +73,6 @@ func (r *Request) Params(params map[string]interface{}) *Request {
 
 	return r
 }
-
 
 func (r *Request) Json(_json map[string]interface{}) *Request {
 	marshalled, err := json.Marshal(_json)

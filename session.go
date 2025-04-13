@@ -84,10 +84,10 @@ func request(method, url string, client *http.Client, headers map[string]string)
 	}
 
 	return &Request{
-		method:  method,
-		url:     url,
-		client:  client,
-		headers: headers,
+		method:        method,
+		url:           url,
+		client:        client,
+		staticHeaders: headers,
 	}
 }
 
