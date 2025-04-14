@@ -85,6 +85,11 @@ func (r *Request) Json(_json map[string]interface{}) *Request {
 	return r
 }
 
+func (r *Request) Body(body []byte) *Request {
+	r.body = bytes.NewBuffer(body)
+	return r
+}
+
 func (r *Request) Headers(headers map[string]string) *Request {
 	r.headers = headers
 	return r
