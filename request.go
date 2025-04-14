@@ -49,7 +49,7 @@ func (r *Request) Do() (*Response, error) {
 	if r.client != nil {
 		client = r.client
 	} else {
-		client = http.DefaultClient
+		client = &http.Client{}
 	}
 
 	_response, err := client.Do(rq)

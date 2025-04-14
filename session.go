@@ -13,9 +13,9 @@ type Session struct {
 }
 
 func NewSession() *Session {
-	client := http.DefaultClient
-	if client.Jar == nil {
-		client.Jar, _ = cookiejar.New(nil)
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
 	}
 	return &Session{
 		client:  client,
@@ -80,7 +80,7 @@ func (s *Session) Post(url string) *Request {
 
 func request(method, url string, client *http.Client, headers map[string]string) *Request {
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{}
 	}
 
 	return &Request{
