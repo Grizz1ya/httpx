@@ -3,6 +3,7 @@ package httpx
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -80,7 +81,7 @@ func (r *Request) Data(data map[string]interface{}) *Request {
 		if formData.Len() > 0 {
 			formData.WriteString("&")
 		}
-		formData.WriteString(key + "=" + value.(string))
+		formData.WriteString(key + "=" + fmt.Sprintf("%v", value))
 	}
 	r.body = formData
 
