@@ -78,6 +78,10 @@ func (s *Session) Post(url string) *Request {
 	return request("POST", url, s.client, s.headers)
 }
 
+func (s *Session) Options(url string) *Request {
+	return request("OPTIONS", url, s.client, s.headers)
+}
+
 func request(method, url string, client *http.Client, headers map[string]string) *Request {
 	if client == nil {
 		client = &http.Client{}
