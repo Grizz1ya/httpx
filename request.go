@@ -74,6 +74,19 @@ func (r *Request) Params(params map[string]interface{}) *Request {
 	return r
 }
 
+func (r *Request) Data(data map[string]interface{}) *Request {
+	formData := bytes.NewBufferString("")
+	for key, value := range data {
+		if formData.Len() > 0 {
+			formData.WriteString("&")
+		}
+		formData.WriteString(key + "=" + value.(string))
+	}
+	r.body = formData
+
+	return r
+}
+
 func (r *Request) Json(_json map[string]interface{}) *Request {
 	marshalled, err := json.Marshal(_json)
 	if err != nil {
