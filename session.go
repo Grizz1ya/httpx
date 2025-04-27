@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -10,6 +11,8 @@ type Session struct {
 	client *http.Client
 
 	headers map[string]string
+
+	Proxy *Proxy
 }
 
 func NewSession() *Session {
@@ -23,14 +26,21 @@ func NewSession() *Session {
 	}
 }
 
-func (s *Session) Proxy(proxy func(*http.Request) (*url.URL, error)) {
+func (s *Session) SetProxy(proxy *Proxy) error {
+	s.Proxy = proxy
+
 	if proxy == nil {
 		s.client.Transport = nil
 	} else {
+		trFunction, err := proxy.TransportFunction()
+		if err != nil {
+			return fmt.Errorf("failed to create proxy transport function: %w", err)
+		}
 		s.client.Transport = &http.Transport{
-			Proxy: proxy,
+			Proxy: trFunction,
 		}
 	}
+	return nil
 }
 
 func (s *Session) AddCookie(domain, name, value string) {
@@ -96,7 +106,6 @@ func request(method, url string, client *http.Client, headers map[string]string)
 }
 
 // * Static methods
-
 func Get(url string) *Request {
 	return request("GET", url, nil, nil)
 }
