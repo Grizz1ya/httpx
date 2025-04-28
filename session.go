@@ -92,6 +92,10 @@ func (s *Session) Options(url string) *Request {
 	return request("OPTIONS", url, s.client, s.headers)
 }
 
+func (s *Session) Put(url string) *Request {
+	return request("PUT", url, s.client, s.headers)
+}
+
 func request(method, url string, client *http.Client, headers map[string]string) *Request {
 	if client == nil {
 		client = &http.Client{}
