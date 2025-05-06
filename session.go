@@ -26,12 +26,15 @@ func NewSession() *Session {
 	}
 }
 
-func (s *Session) Redirect(enable bool) {
+func (s *Session) Redirect(enable bool, customRedirectHandler func()) {
 	// * Enable or disable redirect
 	if enable {
 		s.client.CheckRedirect = nil
 	} else {
 		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if customRedirectHandler != nil {
+				customRedirectHandler()
+			}
 			return http.ErrUseLastResponse
 		}
 	}
