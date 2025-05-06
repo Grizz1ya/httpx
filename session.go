@@ -26,6 +26,17 @@ func NewSession() *Session {
 	}
 }
 
+func (s *Session) Redirect(enable bool) {
+	// * Enable or disable redirect
+	if enable {
+		s.client.CheckRedirect = nil
+	} else {
+		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+}
+
 func (s *Session) SetProxy(proxy *Proxy) error {
 	s.Proxy = proxy
 
