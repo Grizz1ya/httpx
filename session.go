@@ -134,9 +134,7 @@ func (s *Session) rebuildTransport() error {
 		wrapped := &redirectTransport{
 			base: base,
 			store: func(resp *http.Response) {
-				if lastResp == nil {
-					lastResp = resp
-				}
+				lastResp = resp
 			},
 		}
 		s.client.Transport = wrapped
