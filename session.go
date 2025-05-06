@@ -31,7 +31,7 @@ type Session struct {
 	Proxy *Proxy
 
 	redirectEnabled       bool
-	customRedirectHandler func(*http.Response) error
+	customRedirectHandler func(*Response) error
 }
 
 func NewSession() *Session {
@@ -45,7 +45,7 @@ func NewSession() *Session {
 	}
 }
 
-func (s *Session) Redirect(enable bool, handler func(*http.Response) error) error {
+func (s *Session) Redirect(enable bool, handler func(*Response) error) error {
 	s.redirectEnabled = enable
 	s.customRedirectHandler = handler
 	return s.rebuildTransport()
@@ -142,7 +142,10 @@ func (s *Session) rebuildTransport() error {
 		s.client.Transport = wrapped
 		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			if s.customRedirectHandler != nil {
-				return s.customRedirectHandler(lastResp)
+				return s.customRedirectHandler(&Response{
+					response:   lastResp,
+					StatusCode: lastResp.StatusCode,
+				})
 			}
 			return http.ErrUseLastResponse
 		}
