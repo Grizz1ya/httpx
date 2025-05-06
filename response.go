@@ -31,3 +31,7 @@ func (r *Response) Text() string {
 func (r *Response) Cookies() []*http.Cookie {
 	return r.response.Cookies()
 }
+
+func (r *Response) Headers() http.Header {
+	return r.response.Header
+}
