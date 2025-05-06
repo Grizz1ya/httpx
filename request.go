@@ -59,7 +59,8 @@ func (r *Request) Do() (*Response, error) {
 	}
 
 	response := &Response{
-		response: _response,
+		response:   _response,
+		StatusCode: _response.StatusCode,
 	}
 
 	return response, nil

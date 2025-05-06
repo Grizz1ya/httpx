@@ -9,6 +9,8 @@ import (
 
 type Response struct {
 	response *http.Response
+
+	StatusCode int
 }
 
 func (r *Response) Json() *gofasion.Fasion {
