@@ -7,12 +7,31 @@ import (
 	"net/url"
 )
 
+type redirectTransport struct {
+	base  http.RoundTripper
+	store func(*http.Response)
+}
+
+func (t *redirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		t.store(resp)
+	}
+	return resp, nil
+}
+
 type Session struct {
 	client *http.Client
 
 	headers map[string]string
 
 	Proxy *Proxy
+
+	redirectEnabled       bool
+	customRedirectHandler func(*http.Response) error
 }
 
 func NewSession() *Session {
@@ -26,35 +45,15 @@ func NewSession() *Session {
 	}
 }
 
-func (s *Session) Redirect(enable bool, customRedirectHandler func()) {
-	// * Enable or disable redirect
-	if enable {
-		s.client.CheckRedirect = nil
-	} else {
-		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			if customRedirectHandler != nil {
-				customRedirectHandler()
-			}
-			return http.ErrUseLastResponse
-		}
-	}
+func (s *Session) Redirect(enable bool, handler func(*http.Response) error) error {
+	s.redirectEnabled = enable
+	s.customRedirectHandler = handler
+	return s.rebuildTransport()
 }
 
 func (s *Session) SetProxy(proxy *Proxy) error {
 	s.Proxy = proxy
-
-	if proxy == nil {
-		s.client.Transport = nil
-	} else {
-		trFunction, err := proxy.TransportFunction()
-		if err != nil {
-			return fmt.Errorf("failed to create proxy transport function: %w", err)
-		}
-		s.client.Transport = &http.Transport{
-			Proxy: trFunction,
-		}
-	}
-	return nil
+	return s.rebuildTransport()
 }
 
 func (s *Session) AddCookie(domain, name, value string) {
@@ -108,6 +107,51 @@ func (s *Session) Options(url string) *Request {
 
 func (s *Session) Put(url string) *Request {
 	return request("PUT", url, s.client, s.headers)
+}
+
+func (s *Session) rebuildTransport() error {
+	// получаем независимый экземпляр транспортa
+	defaultTr := http.DefaultTransport.(*http.Transport).Clone()
+
+	// если прокси не нужен — используем defaultTr,
+	// иначе клонируем default и ставим нужный Proxy-функцию
+	var base *http.Transport
+	if s.Proxy == nil {
+		base = defaultTr
+	} else {
+		trFn, err := s.Proxy.TransportFunction()
+		if err != nil {
+			return fmt.Errorf("failed to build proxy transport: %w", err)
+		}
+		base = defaultTr.Clone()
+		base.Proxy = trFn
+	}
+
+	// теперь base — ваш полностью независимый транспорт,
+	// в который вы можете врезать обёртку для редиректов
+	if !s.redirectEnabled {
+		var lastResp *http.Response
+		wrapped := &redirectTransport{
+			base: base,
+			store: func(resp *http.Response) {
+				if lastResp == nil {
+					lastResp = resp
+				}
+			},
+		}
+		s.client.Transport = wrapped
+		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if s.customRedirectHandler != nil {
+				return s.customRedirectHandler(lastResp)
+			}
+			return http.ErrUseLastResponse
+		}
+	} else {
+		s.client.Transport = base
+		s.client.CheckRedirect = nil
+	}
+
+	return nil
 }
 
 func request(method, url string, client *http.Client, headers map[string]string) *Request {
