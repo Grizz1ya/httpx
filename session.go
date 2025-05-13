@@ -143,6 +143,7 @@ func (s *Session) rebuildTransport() error {
 				return s.customRedirectHandler(&Response{
 					response:   lastResp,
 					StatusCode: lastResp.StatusCode,
+					URL:        lastResp.Request.URL.String(),
 				})
 			}
 			return http.ErrUseLastResponse

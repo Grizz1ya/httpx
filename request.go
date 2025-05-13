@@ -61,6 +61,7 @@ func (r *Request) Do() (*Response, error) {
 	response := &Response{
 		response:   _response,
 		StatusCode: _response.StatusCode,
+		URL:        _response.Request.URL.String(),
 	}
 
 	return response, nil

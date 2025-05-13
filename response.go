@@ -11,6 +11,7 @@ type Response struct {
 	response *http.Response
 
 	StatusCode int
+	URL        string
 }
 
 func (r *Response) Json() *gofasion.Fasion {
