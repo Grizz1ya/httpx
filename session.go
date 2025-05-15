@@ -5,23 +5,9 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+
+	"github.com/Grizz1ya/httpx/utils"
 )
-
-type redirectTransport struct {
-	base  http.RoundTripper
-	store func(*http.Response)
-}
-
-func (t *redirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.base.RoundTrip(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		t.store(resp)
-	}
-	return resp, nil
-}
 
 type Session struct {
 	client *http.Client
@@ -32,6 +18,8 @@ type Session struct {
 
 	redirectEnabled       bool
 	customRedirectHandler func(*Response) error
+
+	cachedCookieDomains *utils.CachedCookieDomains
 }
 
 func NewSession() *Session {
@@ -40,8 +28,9 @@ func NewSession() *Session {
 		Jar: jar,
 	}
 	return &Session{
-		client:  client,
-		headers: make(map[string]string),
+		client:              client,
+		headers:             make(map[string]string),
+		cachedCookieDomains: utils.NewCachedCookieDomains(),
 	}
 }
 
@@ -68,6 +57,9 @@ func (s *Session) AddCookie(domain, name, value string) {
 		Scheme: "https",
 		Host:   domain,
 	}, []*http.Cookie{cookie})
+
+	// * Add cookie to the list of domains for cookies
+	s.cachedCookieDomains.Add(domain)
 }
 
 func (s *Session) RemoveCookie(domain, name string) {
@@ -94,19 +86,19 @@ func (s *Session) RemoveStaticHeader(key string) {
 }
 
 func (s *Session) Get(url string) *Request {
-	return request("GET", url, s.client, s.headers)
+	return request("GET", url, s.client, s.headers, s.cachedCookieDomains)
 }
 
 func (s *Session) Post(url string) *Request {
-	return request("POST", url, s.client, s.headers)
+	return request("POST", url, s.client, s.headers, s.cachedCookieDomains)
 }
 
 func (s *Session) Options(url string) *Request {
-	return request("OPTIONS", url, s.client, s.headers)
+	return request("OPTIONS", url, s.client, s.headers, s.cachedCookieDomains)
 }
 
 func (s *Session) Put(url string) *Request {
-	return request("PUT", url, s.client, s.headers)
+	return request("PUT", url, s.client, s.headers, s.cachedCookieDomains)
 }
 
 func (s *Session) rebuildTransport() error {
@@ -131,12 +123,12 @@ func (s *Session) rebuildTransport() error {
 	// в который вы можете врезать обёртку для редиректов
 	if !s.redirectEnabled {
 		var lastResp *http.Response
-		wrapped := &redirectTransport{
-			base: base,
-			store: func(resp *http.Response) {
+		wrapped := utils.NewRedirectTransport(
+			base,
+			func(resp *http.Response) {
 				lastResp = resp
 			},
-		}
+		)
 		s.client.Transport = wrapped
 		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			if s.customRedirectHandler != nil {
@@ -156,24 +148,58 @@ func (s *Session) rebuildTransport() error {
 	return nil
 }
 
-func request(method, url string, client *http.Client, headers map[string]string) *Request {
+func (s *Session) Cookies(domains ...string) []*http.Cookie {
+	jar, ok := s.client.Jar.(*cookiejar.Jar)
+	if !ok {
+		return nil
+	}
+
+	cookieSet := make(map[string]*http.Cookie)
+
+	var domainList []string
+	if len(domains) > 0 {
+		domainList = domains
+	} else {
+		domainList = s.cachedCookieDomains.Domains
+	}
+
+	for _, domain := range domainList {
+		u := &url.URL{
+			Scheme: "https",
+			Host:   domain,
+		}
+		for _, c := range jar.Cookies(u) {
+			cookieSet[c.Name+"|"+c.Domain] = c
+		}
+	}
+
+	result := make([]*http.Cookie, 0, len(cookieSet))
+	for _, c := range cookieSet {
+		result = append(result, c)
+	}
+
+	return result
+}
+
+func request(method, url string, client *http.Client, headers map[string]string, cachedCookieDomains *utils.CachedCookieDomains) *Request {
 	if client == nil {
 		client = &http.Client{}
 	}
 
 	return &Request{
-		method:        method,
-		url:           url,
-		client:        client,
-		staticHeaders: headers,
+		method:              method,
+		url:                 url,
+		client:              client,
+		staticHeaders:       headers,
+		cachedCookieDomains: cachedCookieDomains,
 	}
 }
 
 // * Static methods
 func Get(url string) *Request {
-	return request("GET", url, nil, nil)
+	return request("GET", url, nil, nil, nil)
 }
 
 func Post(url string) *Request {
-	return request("POST", url, nil, nil)
+	return request("POST", url, nil, nil, nil)
 }

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/Grizz1ya/httpx/utils"
 )
 
 type Request struct {
@@ -17,6 +19,8 @@ type Request struct {
 
 	params map[string]string
 	body   *bytes.Buffer
+
+	cachedCookieDomains *utils.CachedCookieDomains
 }
 
 func (r *Request) Do() (*Response, error) {
@@ -51,6 +55,10 @@ func (r *Request) Do() (*Response, error) {
 		client = r.client
 	} else {
 		client = &http.Client{}
+	}
+
+	if r.cachedCookieDomains != nil {
+		r.cachedCookieDomains.Add(rq.URL.Hostname())
 	}
 
 	_response, err := client.Do(rq)
