@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 
 	"github.com/Grizz1ya/httpx/utils"
 )
@@ -156,20 +157,28 @@ func (s *Session) Cookies(domains ...string) []*http.Cookie {
 
 	cookieSet := make(map[string]*http.Cookie)
 
-	var domainList []string
+	// Если домены не указаны, берём все известные
+	var filterDomains []string
 	if len(domains) > 0 {
-		domainList = domains
+		for _, d := range domains {
+			filterDomains = append(filterDomains, strings.TrimPrefix(d, "."))
+		}
 	} else {
-		domainList = s.cachedCookieDomains.Domains
+		filterDomains = s.cachedCookieDomains.Domains
 	}
 
-	for _, domain := range domainList {
-		u := &url.URL{
-			Scheme: "https",
-			Host:   domain,
-		}
-		for _, c := range jar.Cookies(u) {
-			cookieSet[c.Name+"|"+c.Domain] = c
+	for _, visited := range s.cachedCookieDomains.Domains {
+		for _, filter := range filterDomains {
+			// Проверяем точное совпадение или поддомен
+			if visited == filter || strings.HasSuffix(visited, "."+filter) {
+				u := &url.URL{Scheme: "https", Host: visited}
+				for _, c := range jar.Cookies(u) {
+					// Убираем дубликаты по имени и домену
+					key := c.Name + "|" + c.Domain
+					cookieSet[key] = c
+				}
+				break // если совпало, идём дальше
+			}
 		}
 	}
 
