@@ -149,6 +149,11 @@ func (s *Session) rebuildTransport() error {
 	return nil
 }
 
+func cloneCookie(c *http.Cookie) *http.Cookie {
+	copy := *c
+	return &copy
+}
+
 func (s *Session) Cookies(domains ...string) []*http.Cookie {
 	jar, ok := s.client.Jar.(*cookiejar.Jar)
 	if !ok {
@@ -157,7 +162,6 @@ func (s *Session) Cookies(domains ...string) []*http.Cookie {
 
 	cookieSet := make(map[string]*http.Cookie)
 
-	// Если домены не указаны, берём все известные
 	var filterDomains []string
 	if len(domains) > 0 {
 		for _, d := range domains {
@@ -169,15 +173,19 @@ func (s *Session) Cookies(domains ...string) []*http.Cookie {
 
 	for _, visited := range s.cachedCookieDomains.Domains {
 		for _, filter := range filterDomains {
-			// Проверяем точное совпадение или поддомен
+			// Совпадение точное или по поддомену
 			if visited == filter || strings.HasSuffix(visited, "."+filter) {
 				u := &url.URL{Scheme: "https", Host: visited}
 				for _, c := range jar.Cookies(u) {
-					// Убираем дубликаты по имени и домену
-					key := c.Name + "|" + c.Domain
+					// Подставим домен, если он не указан
+					if c.Domain == "" {
+						c = cloneCookie(c) // не мутируем оригинал
+						c.Domain = visited // явно указываем источник
+					}
+					key := c.Name + "|" + c.Domain // уникальный ключ
 					cookieSet[key] = c
 				}
-				break // если совпало, идём дальше
+				break
 			}
 		}
 	}
