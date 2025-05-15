@@ -20,7 +20,7 @@ type Request struct {
 	params map[string]string
 	body   *bytes.Buffer
 
-	cachedCookieDomains *utils.CachedCookieDomains
+	cookieOrigins *utils.CookieOriginMap
 }
 
 func (r *Request) Do() (*Response, error) {
@@ -57,10 +57,6 @@ func (r *Request) Do() (*Response, error) {
 		client = &http.Client{}
 	}
 
-	if r.cachedCookieDomains != nil {
-		r.cachedCookieDomains.Add(rq.URL.Hostname())
-	}
-
 	_response, err := client.Do(rq)
 	if err != nil {
 		return nil, err
@@ -70,6 +66,15 @@ func (r *Request) Do() (*Response, error) {
 		response:   _response,
 		StatusCode: _response.StatusCode,
 		URL:        _response.Request.URL.String(),
+	}
+
+	if r.cookieOrigins != nil {
+		for _, cookie := range _response.Cookies() {
+			if cookie.Domain == "" {
+				cookie.Domain = rq.URL.Host
+			}
+			r.cookieOrigins.Add(_response.Request.URL.Host, cookie)
+		}
 	}
 
 	return response, nil

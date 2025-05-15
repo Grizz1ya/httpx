@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"strings"
 
 	"github.com/Grizz1ya/httpx/utils"
 )
@@ -20,7 +19,7 @@ type Session struct {
 	redirectEnabled       bool
 	customRedirectHandler func(*Response) error
 
-	cachedCookieDomains *utils.CachedCookieDomains
+	cookieOrigins *utils.CookieOriginMap
 }
 
 func NewSession() *Session {
@@ -29,9 +28,10 @@ func NewSession() *Session {
 		Jar: jar,
 	}
 	return &Session{
-		client:              client,
-		headers:             make(map[string]string),
-		cachedCookieDomains: utils.NewCachedCookieDomains(),
+		client:          client,
+		headers:         make(map[string]string),
+		cookieOrigins:   utils.NewCookieOriginMap(),
+		redirectEnabled: true,
 	}
 }
 
@@ -52,6 +52,7 @@ func (s *Session) AddCookie(domain, name, value string) {
 		Name:   name,
 		Value:  value,
 		Domain: domain,
+		MaxAge: 10000000,
 	}
 
 	s.client.Jar.SetCookies(&url.URL{
@@ -59,8 +60,8 @@ func (s *Session) AddCookie(domain, name, value string) {
 		Host:   domain,
 	}, []*http.Cookie{cookie})
 
-	// * Add cookie to the list of domains for cookies
-	s.cachedCookieDomains.Add(domain)
+	// * Add cookie to the list
+	s.cookieOrigins.Add(domain, cookie)
 }
 
 func (s *Session) RemoveCookie(domain, name string) {
@@ -71,9 +72,12 @@ func (s *Session) RemoveCookie(domain, name string) {
 	}
 
 	s.client.Jar.SetCookies(&url.URL{
-		Scheme: "http",
+		Scheme: "https",
 		Host:   domain,
 	}, []*http.Cookie{cookie})
+
+	// * Remove cookie from the list
+	s.cookieOrigins.Remove(domain, cookie)
 }
 
 func (s *Session) AddStaticHeader(key, value string) {
@@ -87,19 +91,19 @@ func (s *Session) RemoveStaticHeader(key string) {
 }
 
 func (s *Session) Get(url string) *Request {
-	return request("GET", url, s.client, s.headers, s.cachedCookieDomains)
+	return request("GET", url, s.client, s.headers, s.cookieOrigins)
 }
 
 func (s *Session) Post(url string) *Request {
-	return request("POST", url, s.client, s.headers, s.cachedCookieDomains)
+	return request("POST", url, s.client, s.headers, s.cookieOrigins)
 }
 
 func (s *Session) Options(url string) *Request {
-	return request("OPTIONS", url, s.client, s.headers, s.cachedCookieDomains)
+	return request("OPTIONS", url, s.client, s.headers, s.cookieOrigins)
 }
 
 func (s *Session) Put(url string) *Request {
-	return request("PUT", url, s.client, s.headers, s.cachedCookieDomains)
+	return request("PUT", url, s.client, s.headers, s.cookieOrigins)
 }
 
 func (s *Session) rebuildTransport() error {
@@ -149,66 +153,34 @@ func (s *Session) rebuildTransport() error {
 	return nil
 }
 
-func cloneCookie(c *http.Cookie) *http.Cookie {
-	copy := *c
-	return &copy
-}
-
 func (s *Session) Cookies(domains ...string) []*http.Cookie {
-	jar, ok := s.client.Jar.(*cookiejar.Jar)
-	if !ok {
-		return nil
-	}
-
-	cookieSet := make(map[string]*http.Cookie)
-
-	var filterDomains []string
-	if len(domains) > 0 {
-		for _, d := range domains {
-			filterDomains = append(filterDomains, strings.TrimPrefix(d, "."))
+	if len(domains) == 0 {
+		all := s.cookieOrigins.All()
+		var result []*http.Cookie
+		for _, cookies := range all {
+			result = append(result, cookies...)
 		}
-	} else {
-		filterDomains = s.cachedCookieDomains.Domains
+		return result
 	}
 
-	for _, visited := range s.cachedCookieDomains.Domains {
-		for _, filter := range filterDomains {
-			// Совпадение точное или по поддомену
-			if visited == filter || strings.HasSuffix(visited, "."+filter) {
-				u := &url.URL{Scheme: "https", Host: visited}
-				for _, c := range jar.Cookies(u) {
-					// Подставим домен, если он не указан
-					if c.Domain == "" {
-						c = cloneCookie(c) // не мутируем оригинал
-						c.Domain = visited // явно указываем источник
-					}
-					key := c.Name + "|" + c.Domain // уникальный ключ
-					cookieSet[key] = c
-				}
-				break
-			}
-		}
+	var result []*http.Cookie
+	for _, domain := range domains {
+		result = append(result, s.cookieOrigins.Get(domain)...)
 	}
-
-	result := make([]*http.Cookie, 0, len(cookieSet))
-	for _, c := range cookieSet {
-		result = append(result, c)
-	}
-
 	return result
 }
 
-func request(method, url string, client *http.Client, headers map[string]string, cachedCookieDomains *utils.CachedCookieDomains) *Request {
+func request(method, url string, client *http.Client, headers map[string]string, cookieOrigins *utils.CookieOriginMap) *Request {
 	if client == nil {
 		client = &http.Client{}
 	}
 
 	return &Request{
-		method:              method,
-		url:                 url,
-		client:              client,
-		staticHeaders:       headers,
-		cachedCookieDomains: cachedCookieDomains,
+		method:        method,
+		url:           url,
+		client:        client,
+		staticHeaders: headers,
+		cookieOrigins: cookieOrigins,
 	}
 }
 
