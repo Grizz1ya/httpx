@@ -18,6 +18,7 @@ type Session struct {
 
 	redirectEnabled       bool
 	customRedirectHandler func(*Response) error
+	maxRedirects          int
 
 	cookieOrigins *utils.CookieOriginMap
 }
@@ -32,6 +33,7 @@ func NewSession() *Session {
 		headers:         make(map[string]string),
 		cookieOrigins:   utils.NewCookieOriginMap(),
 		redirectEnabled: true,
+		maxRedirects:    5,
 	}
 }
 
@@ -136,6 +138,9 @@ func (s *Session) rebuildTransport() error {
 		)
 		s.client.Transport = wrapped
 		s.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if len(via) >= s.maxRedirects {
+				return fmt.Errorf("stopped after %d redirects", s.maxRedirects)
+			}
 			if s.customRedirectHandler != nil {
 				return s.customRedirectHandler(&Response{
 					response:   lastResp,
