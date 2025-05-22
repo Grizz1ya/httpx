@@ -180,26 +180,3 @@ func (s *Session) Cookies(domains ...string) []*http.Cookie {
 	}
 	return result
 }
-
-func request(method, url string, client *http.Client, headers map[string]string, cookieOrigins *utils.CookieOriginMap) *Request {
-	if client == nil {
-		client = &http.Client{}
-	}
-
-	return &Request{
-		method:        method,
-		url:           url,
-		client:        client,
-		staticHeaders: headers,
-		cookieOrigins: cookieOrigins,
-	}
-}
-
-// * Static methods
-func Get(url string) *Request {
-	return request("GET", url, nil, nil, nil)
-}
-
-func Post(url string) *Request {
-	return request("POST", url, nil, nil, nil)
-}

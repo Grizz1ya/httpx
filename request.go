@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
+	"time"
 
 	"github.com/Grizz1ya/httpx/utils"
 )
@@ -122,4 +124,31 @@ func (r *Request) Body(body []byte) *Request {
 func (r *Request) Headers(headers map[string]string) *Request {
 	r.headers = headers
 	return r
+}
+
+func request(method, url string, client *http.Client, headers map[string]string, cookieOrigins *utils.CookieOriginMap) *Request {
+	if client == nil {
+		jar, _ := cookiejar.New(nil)
+		client = &http.Client{
+			Jar:     jar,
+			Timeout: 10 * time.Second,
+		}
+	}
+
+	return &Request{
+		method:        method,
+		url:           url,
+		client:        client,
+		staticHeaders: headers,
+		cookieOrigins: cookieOrigins,
+	}
+}
+
+// * Static methods
+func Get(url string) *Request {
+	return request("GET", url, nil, nil, nil)
+}
+
+func Post(url string) *Request {
+	return request("POST", url, nil, nil, nil)
 }
