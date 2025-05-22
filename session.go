@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"time"
 
 	"github.com/Grizz1ya/httpx/utils"
 )
@@ -26,7 +27,8 @@ type Session struct {
 func NewSession() *Session {
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{
-		Jar: jar,
+		Jar:     jar,
+		Timeout: 10 * time.Second,
 	}
 	return &Session{
 		client:          client,
@@ -35,6 +37,10 @@ func NewSession() *Session {
 		redirectEnabled: true,
 		maxRedirects:    5,
 	}
+}
+
+func (s *Session) SetTimeout(timeout time.Duration) {
+	s.client.Timeout = timeout
 }
 
 func (s *Session) Redirect(enable bool, handler func(*Response) error) error {
