@@ -14,19 +14,23 @@ type Response struct {
 	URL        string
 }
 
-func (r *Response) Json() *gofasion.Fasion {
-	return gofasion.NewFasion(r.Text())
+func (r *Response) Json() (*gofasion.Fasion, error) {
+	text, err := r.Text()
+	if err != nil {
+		return nil, err
+	}
+	return gofasion.NewFasion(text), nil
 }
 
-func (r *Response) Text() string {
+func (r *Response) Text() (string, error) {
 	defer r.response.Body.Close()
 
 	content, err := io.ReadAll(r.response.Body)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	return string(content)
+	return string(content), nil
 }
 
 func (r *Response) Cookies() []*http.Cookie {
