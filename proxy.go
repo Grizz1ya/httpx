@@ -5,15 +5,55 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strings"
 )
 
-var proxiesRegex = []*regexp.Regexp{
-	regexp.MustCompile(`^\S+:\d+@\S+:\S+$`), // ip:port@login:password
-	regexp.MustCompile(`^\S+:\S+@\S+:\d+$`), // login:password@ip:port
-	regexp.MustCompile(`^\S+:\d+:\S+:\S+$`), // ip:port:login:password
-	regexp.MustCompile(`^\S+:\S+:\S+:\d+$`), // login:password:ip:port
-	regexp.MustCompile(`^\S+:\d+$`),         // ip:port
+var proxyPatterns = []struct {
+	regex  *regexp.Regexp
+	parser func(p *Proxy, groups []string)
+}{
+	{ // login:password:ip:port
+		regexp.MustCompile(`^(\w+)://(\S+):(\S+):(\S+):(\d+)$`),
+		func(p *Proxy, g []string) {
+			p.Scheme = g[1]
+			u, pw := g[2], g[3]
+			p.Username, p.Password = &u, &pw
+			p.Host, p.Port = g[4], g[5]
+		},
+	},
+	{ // login:password@ip:port
+		regexp.MustCompile(`^(\w+)://(\S+):(\S+)@(\S+):(\d+)$`),
+		func(p *Proxy, g []string) {
+			p.Scheme = g[1]
+			u, pw := g[2], g[3]
+			p.Username, p.Password = &u, &pw
+			p.Host, p.Port = g[4], g[5]
+		},
+	},
+	{ // ip:port:login:password
+		regexp.MustCompile(`^(\w+)://(\S+):(\d+):(\S+):(\S+)$`),
+		func(p *Proxy, g []string) {
+			p.Scheme = g[1]
+			p.Host, p.Port = g[2], g[3]
+			u, pw := g[4], g[5]
+			p.Username, p.Password = &u, &pw
+		},
+	},
+	{ // ip:port@login:password
+		regexp.MustCompile(`^(\w+)://(\S+):(\d+)@(\S+):(\S+)$`),
+		func(p *Proxy, g []string) {
+			p.Scheme = g[1]
+			p.Host, p.Port = g[2], g[3]
+			u, pw := g[4], g[5]
+			p.Username, p.Password = &u, &pw
+		},
+	},
+	{ // ip:port
+		regexp.MustCompile(`^(\w+)://(\S+):(\d+)$`),
+		func(p *Proxy, g []string) {
+			p.Scheme = g[1]
+			p.Host, p.Port = g[2], g[3]
+		},
+	},
 }
 
 type Proxy struct {
@@ -50,58 +90,15 @@ func NewProxyFromLine(rawProxy string) (*Proxy, error) {
 
 	p := &Proxy{}
 
-	p.Scheme = strings.Split(rawProxy, "://")[0]
-	if !isSchemeSupported(p.Scheme) {
-		return nil, fmt.Errorf("unsupported proxy scheme: %s", p.Scheme)
-	}
-
-	rawProxy = strings.TrimPrefix(rawProxy, p.Scheme+"://")
-
-	for i, regex := range proxiesRegex {
-		if !regex.MatchString(rawProxy) {
-			continue
-		}
-
-		parts := strings.Split(rawProxy, ":")
-
-		switch i {
-		case 0: // ip:port@login:password
-			p.Host = parts[0]
-			p.Port = strings.Split(parts[1], "@")[0]
-			p.Username = &parts[2]
-			p.Password = &parts[3]
-		case 1: // login:password@ip:port
-			p.Host = strings.Split(parts[1], "@")[1]
-			p.Port = parts[2]
-			p.Username = &parts[0]
-			p.Password = &strings.Split(parts[1], "@")[0]
-		case 2: // ip:port:login:password
-			p.Host = parts[0]
-			p.Port = parts[1]
-			p.Username = &parts[2]
-			p.Password = &parts[3]
-		case 3: // login:password:ip:port
-			p.Host = strings.Split(parts[2], "@")[1]
-			p.Port = parts[3]
-			p.Username = &parts[0]
-			p.Password = &strings.Split(parts[2], "@")[0]
-		case 4: // ip:port
-			p.Host = parts[0]
-			p.Port = parts[1]
+	for _, pattern := range proxyPatterns {
+		matches := pattern.regex.FindStringSubmatch(rawProxy)
+		if len(matches) > 0 {
+			pattern.parser(p, matches)
+			return p, nil
 		}
 	}
 
-	if p.Host == "" || p.Port == "" {
-		return nil, fmt.Errorf("invalid proxy format: %s", rawProxy)
-	}
-
-	if p.Username != nil && p.Password != nil {
-		if *p.Username == "" || *p.Password == "" {
-			return nil, fmt.Errorf("username or password cannot be empty if provided")
-		}
-	}
-
-	return p, nil
+	return p, fmt.Errorf("invalid proxy format: %s", rawProxy)
 }
 
 func NewProxy(opt *Proxy) (*Proxy, error) {
