@@ -93,6 +93,12 @@ func (s *Session) AddStaticHeader(key, value string) {
 	s.headers[key] = value
 }
 
+func (s *Session) GetStaticHeader(key string) (string, bool) {
+	// * Get static headers from the session
+	value, ok := s.headers[key]
+	return value, ok
+}
+
 func (s *Session) RemoveStaticHeader(key string) {
 	// * Remove static headers from the session
 	delete(s.headers, key)
