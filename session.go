@@ -1,13 +1,16 @@
 package httpx
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"time"
 
 	"github.com/Grizz1ya/httpx/utils"
+	utls "github.com/refraction-networking/utls"
 )
 
 type Session struct {
@@ -22,6 +25,8 @@ type Session struct {
 	maxRedirects          int
 
 	cookieOrigins *utils.CookieOriginMap
+
+	tlsFingerprint utls.ClientHelloID
 }
 
 func NewSession() *Session {
@@ -36,7 +41,13 @@ func NewSession() *Session {
 		cookieOrigins:   utils.NewCookieOriginMap(),
 		redirectEnabled: true,
 		maxRedirects:    5,
+		tlsFingerprint:  utls.HelloChrome_131, // по умолчанию Chrome
 	}
+}
+
+func (s *Session) SetTLSFingerprint(fingerprint utls.ClientHelloID) error {
+	s.tlsFingerprint = fingerprint
+	return s.rebuildTransport()
 }
 
 func (s *Session) SetTimeout(timeout time.Duration) {
@@ -121,14 +132,11 @@ func (s *Session) Put(url string) *Request {
 }
 
 func (s *Session) rebuildTransport() error {
-	// получаем независимый экземпляр транспортa
 	defaultTr := http.DefaultTransport.(*http.Transport).Clone()
 
-	// если прокси не нужен — используем defaultTr,
-	// иначе клонируем default и ставим нужный Proxy-функцию
 	var base *http.Transport
 	if s.Proxy == nil {
-		base = defaultTr
+		base = defaultTr.Clone()
 	} else {
 		trFn, err := s.Proxy.TransportFunction()
 		if err != nil {
@@ -138,8 +146,28 @@ func (s *Session) rebuildTransport() error {
 		base.Proxy = trFn
 	}
 
-	// теперь base — ваш полностью независимый транспорт,
-	// в который вы можете врезать обёртку для редиректов
+	// 🌐 Подменяем TLS через uTLS
+	base.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialer := &net.Dialer{}
+		tcpConn, err := dialer.DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+
+		host, _, _ := net.SplitHostPort(addr)
+		config := &utls.Config{
+			ServerName: host,
+		}
+
+		utlsConn := utls.UClient(tcpConn, config, s.tlsFingerprint)
+		if err := utlsConn.Handshake(); err != nil {
+			return nil, err
+		}
+
+		return utlsConn, nil
+	}
+
+	// 🔄 Обработка редиректов (как раньше)
 	if !s.redirectEnabled {
 		var lastResp *http.Response
 		wrapped := utils.NewRedirectTransport(

@@ -1,9 +1,9 @@
 package httpx
 
 import (
-	"strconv"
 	"testing"
-	"time"
+
+	utls "github.com/refraction-networking/utls"
 )
 
 func TestSession(t *testing.T) {
@@ -12,6 +12,8 @@ func TestSession(t *testing.T) {
 	if s == nil {
 		t.Error("NewSession() returned nil")
 	}
+
+	s.SetTLSFingerprint(utls.HelloEdge_106)
 
 	// s.AddStaticHeader("key", "value")
 	// if s.headers["key"] != "value" {
@@ -36,16 +38,9 @@ func TestSession(t *testing.T) {
 	t.Logf("[3] Proxy: %v", s.Proxy)
 
 	s.AddStaticHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Safari/605.1.15")
-	s.AddStaticHeader("Sec-Fetch-Site", "same-origin")
 	s.AddStaticHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-	s.AddCookie(".facebook.com", "datr", "RIcjaDfbwXH1xlAyTpqP-Wna")
-	s.AddCookie(".facebook.com", "sb", "TYcjaAfNmUg-ScVOZIxqVfrp")
-	s.AddCookie(".facebook.com", "locale", "en_US")
-	s.AddCookie(".facebook.com", "wd", "1352x1079")
-	s.AddCookie(".facebook.com", "c_user", "100027124353410")
-	s.AddCookie(".facebook.com", "xs", "37%3A9cECQuz71iTMiA%3A2%3A1747308647%3A-1%3A68")
 
-	response, err := s.Get("https://facebook.com/").Do()
+	response, err := s.Get("https://tls.peet.ws/api/all").Do()
 	if err != nil {
 		t.Error("Get() failed")
 	}
@@ -55,23 +50,27 @@ func TestSession(t *testing.T) {
 	// s.Get("https://adsmanager.facebook.com/").Do()
 	// s.Get("https://business.facebook.com/").Do()
 
-	cookies := s.Cookies()
-	for _, cookie := range cookies {
-		var expires string
-		if cookie.Expires.IsZero() {
-			expires = strconv.FormatInt(time.Now().Add(10*365*24*time.Hour).Unix(), 10)
-		} else {
-			expires = strconv.FormatInt(cookie.Expires.Unix(), 10)
-		}
-		t.Logf("Domain: %s, Name: %s, Value: %s, Expires: %s",
-			cookie.Domain,
-			cookie.Name,
-			cookie.Value,
-			expires,
-		)
+	// cookies := s.Cookies()
+	// for _, cookie := range cookies {
+	// 	var expires string
+	// 	if cookie.Expires.IsZero() {
+	// 		expires = strconv.FormatInt(time.Now().Add(10*365*24*time.Hour).Unix(), 10)
+	// 	} else {
+	// 		expires = strconv.FormatInt(cookie.Expires.Unix(), 10)
+	// 	}
+	// 	t.Logf("Domain: %s, Name: %s, Value: %s, Expires: %s",
+	// 		cookie.Domain,
+	// 		cookie.Name,
+	// 		cookie.Value,
+	// 		expires,
+	// 	)
+	// }
+	text, err := response.Text()
+	if err != nil {
+		t.Error("Response.Text() failed")
 	}
 
-	// t.Logf("Response text: %v", response.Text())
+	t.Logf("Response text: %v", text)
 
 	// response, err := s.Get("http://example.com").Params(map[string]interface{}{"param1": "value"}).Do()
 	// if err != nil {
