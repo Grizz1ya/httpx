@@ -98,7 +98,30 @@ func (r *Request) Data(data map[string]interface{}) *Request {
 		if formData.Len() > 0 {
 			formData.WriteString("&")
 		}
-		formData.WriteString(key + "=" + fmt.Sprintf("%v", value))
+
+		var valueStr string
+		switch v := value.(type) {
+		case map[string]interface{}:
+			// Serialize nested maps as JSON
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				valueStr = fmt.Sprintf("%v", value)
+			} else {
+				valueStr = string(jsonBytes)
+			}
+		case []interface{}, []int, []float64, []string:
+			// Serialize arrays/slices as JSON
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				valueStr = fmt.Sprintf("%v", value)
+			} else {
+				valueStr = string(jsonBytes)
+			}
+		default:
+			valueStr = fmt.Sprintf("%v", value)
+		}
+
+		formData.WriteString(key + "=" + valueStr)
 	}
 	r.body = formData
 

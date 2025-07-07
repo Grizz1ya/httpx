@@ -30,7 +30,7 @@ func TestSession(t *testing.T) {
 	// s.SetProxy(nil)
 	// t.Logf("[2] Proxy: %v", s.Proxy)
 
-	proxy, err := NewProxyFromLine("http://127.0.0.1:8080")
+	proxy, err := NewProxyFromLine("socks5://87.247.143.76:64001:qWp6sBUU:2xJMcUFQ")
 	if err != nil {
 		t.Error("NewProxyFromLine() failed")
 	}
