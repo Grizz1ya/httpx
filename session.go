@@ -161,6 +161,7 @@ func (s *Session) rebuildTransport() error {
 
 		utlsConn := utls.UClient(tcpConn, config, s.tlsFingerprint)
 		if err := utlsConn.Handshake(); err != nil {
+			tcpConn.Close()
 			return nil, err
 		}
 
