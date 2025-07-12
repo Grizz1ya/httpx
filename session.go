@@ -215,3 +215,29 @@ func (s *Session) Cookies(domains ...string) []*http.Cookie {
 	}
 	return result
 }
+
+func (s *Session) Destroy() {
+	// Очистить куки: создаём новый jar
+	jar, _ := cookiejar.New(nil)
+	s.client.Jar = jar
+
+	// Очистить заголовки
+	for k := range s.headers {
+		delete(s.headers, k)
+	}
+
+	// Обнулить redirect-обработку
+	s.client.CheckRedirect = nil
+	s.redirectEnabled = false
+	s.customRedirectHandler = nil
+
+	// Обнулить proxy и транспорт (это закроет соединения и освободит память)
+	s.Proxy = nil
+	s.client.Transport = nil
+
+	// Сброс timeout и прочего — опционально
+	s.client.Timeout = 0
+
+	// Сброс TLS fingerprint — если хочешь
+	// s.tlsFingerprint = utls.HelloChrome_131
+}
