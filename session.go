@@ -221,6 +221,9 @@ func (s *Session) Destroy() {
 	jar, _ := cookiejar.New(nil)
 	s.client.Jar = jar
 
+	// Очистить cookie origins
+	s.cookieOrigins = utils.NewCookieOriginMap()
+
 	// Очистить заголовки
 	for k := range s.headers {
 		delete(s.headers, k)
