@@ -24,32 +24,22 @@ func (m *CookieOriginMap) Add(domain string, cookies ...*http.Cookie) {
 
 	domain = strings.TrimPrefix(domain, ".")
 	existing := m.data[domain]
-	newList := make([]*http.Cookie, 0, len(existing))
-
-	// Сначала строим карту удаляемых имён
-	toDelete := make(map[string]bool)
-	for _, c := range cookies {
-		if c.MaxAge <= 0 || c.Value == "" || (!c.Expires.IsZero() && c.Expires.Before(time.Now())) {
-			toDelete[c.Name] = true
-		}
-	}
-
-	// Переписываем только те, которые не удаляются
+	existingMap := make(map[string]struct{}, len(existing))
 	for _, c := range existing {
-		if !toDelete[c.Name] {
-			newList = append(newList, c)
-		}
+		existingMap[c.Name] = struct{}{}
 	}
 
-	// Добавляем новые (не удалённые) куки
 	for _, c := range cookies {
-		if toDelete[c.Name] {
-			continue // удаляем, не добавляем
+		if c == nil || c.Value == "" || c.MaxAge <= 0 || (!c.Expires.IsZero() && c.Expires.Before(time.Now())) {
+			continue // удалённая / пустая
 		}
-		newList = append(newList, c)
+		if _, ok := existingMap[c.Name]; ok {
+			continue // уже есть
+		}
+		existing = append(existing, c)
 	}
 
-	m.data[domain] = newList
+	m.data[domain] = existing
 }
 
 func (m *CookieOriginMap) Remove(domain string, cookies ...*http.Cookie) {
