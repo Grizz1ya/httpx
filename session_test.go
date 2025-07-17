@@ -2,8 +2,6 @@ package httpx
 
 import (
 	"testing"
-
-	utls "github.com/refraction-networking/utls"
 )
 
 func TestSession(t *testing.T) {
@@ -13,7 +11,7 @@ func TestSession(t *testing.T) {
 		t.Error("NewSession() returned nil")
 	}
 
-	s.SetTLSFingerprint(utls.HelloEdge_106)
+	// s.SetTLSFingerprint(utls.HelloEdge_106)
 
 	// s.AddStaticHeader("key", "value")
 	// if s.headers["key"] != "value" {

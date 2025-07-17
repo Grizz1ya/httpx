@@ -1,16 +1,14 @@
 package httpx
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"time"
 
 	"github.com/Grizz1ya/httpx/utils"
-	utls "github.com/refraction-networking/utls"
+	// utls "github.com/refraction-networking/utls"
 )
 
 type Session struct {
@@ -26,7 +24,7 @@ type Session struct {
 
 	cookieOrigins *utils.CookieOriginMap
 
-	tlsFingerprint utls.ClientHelloID
+	// tlsFingerprint utls.ClientHelloID
 }
 
 func NewSession() *Session {
@@ -41,14 +39,14 @@ func NewSession() *Session {
 		cookieOrigins:   utils.NewCookieOriginMap(),
 		redirectEnabled: true,
 		maxRedirects:    5,
-		tlsFingerprint:  utls.HelloChrome_131, // по умолчанию Chrome
+		// tlsFingerprint:  utls.HelloChrome_131, // по умолчанию Chrome
 	}
 }
 
-func (s *Session) SetTLSFingerprint(fingerprint utls.ClientHelloID) error {
-	s.tlsFingerprint = fingerprint
-	return s.rebuildTransport()
-}
+// func (s *Session) SetTLSFingerprint(fingerprint utls.ClientHelloID) error {
+// 	s.tlsFingerprint = fingerprint
+// 	return s.rebuildTransport()
+// }
 
 func (s *Session) SetTimeout(timeout time.Duration) {
 	s.client.Timeout = timeout
@@ -147,26 +145,26 @@ func (s *Session) rebuildTransport() error {
 	}
 
 	// 🌐 Подменяем TLS через uTLS
-	base.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		dialer := &net.Dialer{}
-		tcpConn, err := dialer.DialContext(ctx, network, addr)
-		if err != nil {
-			return nil, err
-		}
+	// base.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+	// 	dialer := &net.Dialer{}
+	// 	tcpConn, err := dialer.DialContext(ctx, network, addr)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		host, _, _ := net.SplitHostPort(addr)
-		config := &utls.Config{
-			ServerName: host,
-		}
+	// 	host, _, _ := net.SplitHostPort(addr)
+	// 	config := &utls.Config{
+	// 		ServerName: host,
+	// 	}
 
-		utlsConn := utls.UClient(tcpConn, config, s.tlsFingerprint)
-		if err := utlsConn.Handshake(); err != nil {
-			tcpConn.Close()
-			return nil, err
-		}
+	// 	utlsConn := utls.UClient(tcpConn, config, s.tlsFingerprint)
+	// 	if err := utlsConn.Handshake(); err != nil {
+	// 		tcpConn.Close()
+	// 		return nil, err
+	// 	}
 
-		return utlsConn, nil
-	}
+	// 	return utlsConn, nil
+	// }
 
 	// 🔄 Обработка редиректов (как раньше)
 	if !s.redirectEnabled {
