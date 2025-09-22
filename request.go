@@ -75,6 +75,17 @@ func (r *Request) Do() (*Response, error) {
 			if cookie.Domain == "" {
 				cookie.Domain = rq.URL.Host
 			}
+
+			// Handle server-side cookie removals so Session.Cookies stays in sync.
+			if cookie.MaxAge <= 0 || cookie.Value == "" ||
+				(!cookie.Expires.IsZero() && cookie.Expires.Before(time.Now())) {
+				r.cookieOrigins.Remove(_response.Request.URL.Host, cookie)
+				if cookie.Domain != "" {
+					r.cookieOrigins.Remove(cookie.Domain, cookie)
+				}
+				continue
+			}
+
 			r.cookieOrigins.Add(_response.Request.URL.Host, cookie)
 		}
 	}
